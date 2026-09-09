@@ -2,27 +2,41 @@ import os
 import pandas as pd
 import streamlit as st
 
-# 웹페이지 상단 제목 설정
-st.title("🔍 벨루트/옷미녀 상품 조회 시스템")
+st.title("🔍 사내 상품 상세페이지 조회 시스템")
 st.write("자체상품코드를 입력하면 상세페이지 링크를 바로 확인할 수 있습니다.")
 
-# 1. 엑셀 파일 경로 설정 (현재 코드 파일과 같은 폴더에 있다고 명시)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(current_dir, "product_list.xlsx")
 
 try:
-  df = pd.read_excel(file_path)
-except FileNotFoundError:
+  # sheet_name=None을 주면 엑셀 파일의 모든 시트를 한 번에 사전(dict) 형태로 읽어옵니다.
+  excel_file = pd.ExcelFile(file_path)
+  dfs = []
+  for sheet_name in excel_file.sheet_names:
+    temp_df = pd.read_excel(file_path, sheet_name=sheet_name)
+    dfs.append(temp_df)
+
+  # 모든 시트의 데이터를 하나로 합칩니다.
+  df = pd.concat(dfs, ignore_index=True)
+
+  # '자체상품코드', '상품명', '상세페이지 URL' 이라는 글자가 들어간 쓸모없는 행(헤더 중복 등)은 걸러냅니다.
+  df = df[
+      ~df["자체상품코드"]
+      .astype(str)
+      .str.contains("자체상품코드|nan|None", na=False)
+  ]
+
+except Exception as e:
   st.error(
-      f"'{file_path}' 경로에서 엑셀 파일을 찾을 수 없습니다. 엑셀 파일이"
-      " 'product_search' 폴더 안에 있는지 확인해주세요."
+      f"엑셀 파일을 읽는 중 오류가 발생했습니다. 파일 경로와 형식을"
+      f" 확인해주세요. (에러: {e})"
   )
   st.stop()
 
 # 2. 검색창 만들기
 search_code = st.text_input("자체상품코드를 입력하거나 붙여넣으세요:")
 
-# 3. 검색 버튼 또는 엔터 입력 시 결과 표시
+# 3. 검색 결과 표시
 if search_code:
   df["자체상품코드_str"] = df["자체상품코드"].astype(str).str.strip()
   search_code_clean = str(search_code).strip()
